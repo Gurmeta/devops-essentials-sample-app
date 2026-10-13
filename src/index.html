@@ -33,6 +33,8 @@
       <nav aria-label="Primary">
         <ul class="nav-list">
           <li><a href="#pipeline">Pipeline</a></li>
+          <li><a href="#architecture">Architecture</a></li>
+          <li><a href="#config">Under the hood</a></li>
           <li><a href="#practices">Practices</a></li>
           <li><a href="#stack">Stack</a></li>
         </ul>
@@ -86,6 +88,107 @@
       </div>
     </section>
 
+    <section class="section section-alt" id="architecture" aria-labelledby="architecture-title">
+      <div class="container">
+        <h2 id="architecture-title">Architecture</h2>
+        <p class="section-lead">Two pipelines share one repository: GitHub Actions validates every pull request and publishes this site, while Jenkins promotes the packaged artifact to staging and production.</p>
+        <figure class="diagram">
+          <svg viewBox="0 0 880 330" role="img" aria-labelledby="diagram-title diagram-desc">
+            <title id="diagram-title">Delivery architecture</title>
+            <desc id="diagram-desc">A developer opens a pull request on GitHub. GitHub Actions builds and validates it, then publishes the site to GitHub Pages after merge. Jenkins builds the artifact, deploys to staging over SSH, waits for manual approval and deploys to production.</desc>
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0 0 L10 5 L0 10 z" class="d-arrow"/>
+              </marker>
+            </defs>
+
+            <g class="d-node"><rect x="10" y="125" width="130" height="64" rx="10"/><text x="75" y="153" text-anchor="middle">Developer</text><text x="75" y="173" text-anchor="middle" class="d-sub">feature branch</text></g>
+            <g class="d-node"><rect x="200" y="125" width="150" height="64" rx="10"/><text x="275" y="153" text-anchor="middle">GitHub</text><text x="275" y="173" text-anchor="middle" class="d-sub">pull request + review</text></g>
+
+            <g class="d-node d-accent"><rect x="430" y="30" width="180" height="64" rx="10"/><text x="520" y="58" text-anchor="middle">GitHub Actions</text><text x="520" y="78" text-anchor="middle" class="d-sub">build, validate HTML</text></g>
+            <g class="d-node"><rect x="690" y="30" width="180" height="64" rx="10"/><text x="780" y="58" text-anchor="middle">GitHub Pages</text><text x="780" y="78" text-anchor="middle" class="d-sub">this website</text></g>
+
+            <g class="d-node d-accent"><rect x="430" y="220" width="180" height="64" rx="10"/><text x="520" y="248" text-anchor="middle">Jenkins</text><text x="520" y="268" text-anchor="middle" class="d-sub">Gradle build, artifact</text></g>
+            <g class="d-node"><rect x="690" y="190" width="180" height="50" rx="10"/><text x="780" y="220" text-anchor="middle">Staging (SSH)</text></g>
+            <g class="d-node"><rect x="690" y="265" width="180" height="50" rx="10"/><text x="780" y="295" text-anchor="middle">Production (SSH)</text></g>
+
+            <path class="d-line" d="M140 157 H198" marker-end="url(#arrow)"/>
+            <path class="d-line" d="M350 145 C390 145 390 62 428 62" marker-end="url(#arrow)"/>
+            <path class="d-line" d="M350 170 C390 170 390 252 428 252" marker-end="url(#arrow)"/>
+            <path class="d-line" d="M610 62 H688" marker-end="url(#arrow)"/>
+            <path class="d-line" d="M610 242 C650 242 650 215 688 215" marker-end="url(#arrow)"/>
+            <path class="d-line d-dash" d="M780 240 V263" marker-end="url(#arrow)"/>
+            <text x="770" y="256" class="d-sub" text-anchor="end">manual approval</text>
+            <text x="395" y="112" class="d-sub" text-anchor="middle">on PR + push</text>
+          </svg>
+          <figcaption>Pull requests run through GitHub Actions. Merges to <code>master</code> publish the site and start the Jenkins release.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section" id="config" aria-labelledby="config-title">
+      <div class="container">
+        <h2 id="config-title">Under the hood</h2>
+        <p class="section-lead">The configuration that drives the pipeline, trimmed to the essentials.</p>
+        <div class="code-grid">
+          <figure class="code-card">
+            <figcaption>build.gradle</figcaption>
+<pre><code>tasks.register('verifySite') {
+    doLast {
+        def missing = requiredFiles.findAll {
+            !siteDir.file(it).asFile.exists()
+        }
+        if (missing) {
+            throw new GradleException(
+                "Missing site files: ${missing.join(', ')}")
+        }
+    }
+}
+
+tasks.register('siteZip', Zip) {
+    from siteDir
+    destinationDirectory =
+        layout.buildDirectory.dir('distributions')
+}</code></pre>
+          </figure>
+          <figure class="code-card">
+            <figcaption>Jenkinsfile</figcaption>
+<pre><code>stage('Deploy to production') {
+    when { branch 'master' }
+    steps {
+        input message: 'Does the staging environment look OK?'
+        milestone(1)
+        deployTo('production')
+    }
+}</code></pre>
+          </figure>
+          <figure class="code-card">
+            <figcaption>.github/workflows/ci.yml</figcaption>
+<pre><code>- uses: gradle/actions/setup-gradle@v4
+
+- name: Build and verify
+  run: ./gradlew build --no-daemon
+
+- name: Validate HTML
+  run: npx --yes html-validate@8 src/index.html</code></pre>
+          </figure>
+        </div>
+        <figure class="terminal" aria-label="Example build output">
+          <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
+<pre><code>$ ./gradlew build
+
+&gt; Task :verifySite
+&gt; Task :siteZip
+&gt; Task :assemble
+&gt; Task :check
+&gt; Task :build
+
+BUILD SUCCESSFUL</code></pre>
+          <figcaption>Example output of a local build</figcaption>
+        </figure>
+      </div>
+    </section>
+
     <section class="section section-alt" id="practices" aria-labelledby="practices-title">
       <div class="container">
         <h2 id="practices-title">Practices behind it</h2>
@@ -113,13 +216,22 @@
     <section class="section" id="stack" aria-labelledby="stack-title">
       <div class="container">
         <h2 id="stack-title">Tooling</h2>
-        <ul class="chips">
-          <li>Gradle</li>
-          <li>Jenkins</li>
-          <li>GitHub Actions</li>
-          <li>SSH deploy</li>
-          <li>Static HTML &amp; CSS</li>
-        </ul>
+        <div class="table-wrap">
+          <table>
+            <caption class="visually-hidden">Technologies used</caption>
+            <thead>
+              <tr><th scope="col">Area</th><th scope="col">Tool</th><th scope="col">Role</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Build</th><td>Gradle 8.10.2</td><td>Verifies the site and packages it as a zip</td></tr>
+              <tr><th scope="row">Runtime</th><td>JDK 17 (Temurin)</td><td>Runs Gradle locally and in CI</td></tr>
+              <tr><th scope="row">CI</th><td>GitHub Actions</td><td>Build, HTML validation, Pages deploy</td></tr>
+              <tr><th scope="row">Release</th><td>Jenkins</td><td>Staging, approval gate, production</td></tr>
+              <tr><th scope="row">Transport</th><td>Publish over SSH</td><td>Copies the site to each environment</td></tr>
+              <tr><th scope="row">Frontend</th><td>HTML, CSS, vanilla JS</td><td>No framework or build step required</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>

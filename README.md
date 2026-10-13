@@ -23,7 +23,7 @@ commit -> build -> verify -> staging -> manual approval -> production
 
 ```
 src/
-  index.html      Page markup
+  index.html      Page markup, architecture diagram and config excerpts
   css/styles.css  Styles, with light and dark themes
   js/main.js      Theme toggle and scroll animations
   favicon.svg
