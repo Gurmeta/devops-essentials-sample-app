@@ -37,3 +37,25 @@ jobs:
           name: site
           path: build/distributions/*.zip
           if-no-files-found: error
+
+  deploy-pages:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: src
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

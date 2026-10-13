@@ -15,6 +15,7 @@ commit -> build -> verify -> staging -> manual approval -> production
 | --- | --- | --- |
 | Build | Gradle | Verifies required files and packages `src/` into a zip |
 | Verify | GitHub Actions | Builds on every PR and validates the HTML |
+| Pages | GitHub Actions | Publishes `src/` to GitHub Pages on every merge to `master` |
 | Staging | Jenkins | Publishes `src/` to the staging host over SSH |
 | Production | Jenkins | Same publish step, gated by a manual approval |
 
